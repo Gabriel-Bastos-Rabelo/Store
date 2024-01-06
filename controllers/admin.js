@@ -9,7 +9,8 @@ exports.getAddProduct = (req, res, next) => {
     productCSS: true,
     activeAddProduct: true,
     editing: false,
-    isLoggedIn: req.session.isLoggedIn
+    isLoggedIn: req.session.isLoggedIn,
+    
     
   });
 };
@@ -45,7 +46,8 @@ exports.getProducts = (req, res, next) => {
       prods: data,
       pageTitle: 'Admin Products',
       path: '/admin/products',
-      isLoggedIn: req.session.isLoggedIn
+      isLoggedIn: req.session.isLoggedIn,
+
     });
   }).catch(err => console.log(err))
  

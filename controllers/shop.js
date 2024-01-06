@@ -12,7 +12,8 @@ exports.getProducts = (req, res, next) => {
       prods: data,
       pageTitle: 'All Products',
       path: '/products',
-      isLoggedIn: req.session.isLoggedIn
+      isLoggedIn: req.session.isLoggedIn,
+
     });
   }).catch(err => console.log(err))
 
@@ -23,7 +24,7 @@ exports.getProduct = (req, res, next) => {
   const id = req.params.id;
   Product.findByPk(id).then(data => {
 
-    res.render("shop/product-details", {product: data, pageTitle: "Product details", path: "/product-details"})
+    res.render("shop/product-details", {product: data, pageTitle: "Product details", path: "/product-details", isLoggedIn: req.session.isLoggedIn, csrfToken: req.csrfToken()})
   }).catch(err => console.log(err))
   
 }
@@ -37,7 +38,8 @@ exports.getIndex = async (req, res, next) => {
       prods: data,
       pageTitle: 'Shop',
       path: '/',
-      isLoggedIn: req.session.isLoggedIn
+      isLoggedIn: req.session.isLoggedIn,
+
     });
   }).catch(err => console.log(err))
   
@@ -45,7 +47,9 @@ exports.getIndex = async (req, res, next) => {
 };
 
 exports.getCart = (req, res, next) => {
+  console.log("chegou auqi")
   const userId = req.session.user.id;
+  console.log(req.session.user)
   User.findByPk(userId)
   .then(user => {
     return user.getCart();
@@ -57,7 +61,8 @@ exports.getCart = (req, res, next) => {
         path: '/cart',
         pageTitle: 'Your Cart',
         products: product,
-        isLoggedIn: req.session.isLoggedIn
+        isLoggedIn: req.session.isLoggedIn,
+        
       })
     .catch(err => console.log(err))
     })
@@ -78,7 +83,8 @@ exports.getOrders = (req, res, next) => {
       path: '/orders',
       pageTitle: 'Your Cart',
       orders: orders,
-      isLoggedIn: req.session.isLoggedIn
+      isLoggedIn: req.session.isLoggedIn,
+      
     });
   }).catch(err => console.log(err))
   
@@ -130,7 +136,11 @@ exports.addCart = (req, res, next) => {
 
 exports.postDeleteProductCart = (req, res, next) => {
   const id = req.body.productId;
-  req.user.getCart().then(cart => {
+  const userId = req.session.user.id;
+  User.findByPk(userId).then(user => {
+    return user.getCart();
+  })
+  .then(cart => {
     return cart.getProducts({where: {id: id}});
   }).then(product => {
     return product[0].cartItem.destroy();

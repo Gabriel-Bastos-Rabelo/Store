@@ -13,20 +13,50 @@ const Cart = require("./models/cart");
 const CartItem = require("./models/cart-item");
 const Order = require("./models/order");
 const OrderItem = require("./models/order-item");
+const cookieParser = require('cookie-parser');
+const { doubleCsrf } = require("csrf-csrf");
+
+const flash = require("connect-flash");
 
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
+
+require('dotenv').config();
+
+
+const doubleCsrfOptions = {
+	getSecret: () => process.env.SECRET_KEY,
+	cookieName: "__Host-meu.x-csrf-token",
+	cookieOptions: {
+	  sameSite: "strict",
+	  path: "/",
+	  secure: true
+	},
+	size: 64,
+	ignoredMethods: ["GET", "HEAD", "OPTIONS"],
+	getTokenFromRequest: (req) => req.headers["x-csrf-token"]
+  };
+
+const {
+	invalidCsrfTokenError, // This is just for convenience if you plan on making your own middleware.
+	generateToken, // Use this in your routes to provide a CSRF hash + token cookie and token.
+	validateRequest, // Also a convenience if you plan on making your own middleware.
+	doubleCsrfProtection, // This is the default CSRF protection middleware.
+  } = doubleCsrf(doubleCsrfOptions);
+  
 
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(express.static(path.join(__dirname, 'public')))
 
 
+
+
 const options = {
-	host: 'localhost',
+	host: process.env.DB_HOST,
 	port: 3306,
-	user: 'root',
-	password: 'Gb@stos7',
-	database: 'store_project'
+	user: process.env.DB_USER,
+	password: process.env.DB_PASS,
+	database: process.env.DB_NAME
 };
 
 const sessionStore = new MySQLStore(options);
@@ -41,6 +71,19 @@ app.use(session({
 }));
 
 
+app.use(cookieParser('sua chave secreta'));
+
+
+app.use((req, res, next) => {
+	res.locals.isLoggedIn = req.session.isLoggedIn;
+	const csrfToken = generateToken(req, res);
+	res.locals.csrfToken = csrfToken;
+
+
+	next();
+})
+
+app.use(flash());
 
 
 app.use("/admin", router);
@@ -67,12 +110,6 @@ User.hasMany(Order);
 Order.belongsToMany(Product, {through: OrderItem});
 
 sequelize.sync().then((result) => {
-    return User.findByPk(1);
-}).then(user => {
-    if (!user) {
-        return User.create({ name: 'Max', email: 'gab@gmail.com' });
-    }
-
     app.listen(3000);
 })
     .catch(err => console.log(err))
