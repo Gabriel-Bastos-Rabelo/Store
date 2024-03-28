@@ -15,6 +15,7 @@ const Order = require("./models/order");
 const OrderItem = require("./models/order-item");
 const cookieParser = require('cookie-parser');
 const { doubleCsrf } = require("csrf-csrf");
+const multer = require("multer");
 
 const flash = require("connect-flash");
 
@@ -24,30 +25,59 @@ const MySQLStore = require('express-mysql-session')(session);
 require('dotenv').config();
 
 
+const fileStorage = multer.diskStorage({
+	destination: (req, file, cb) => {
+		cb(null, 'images');
+	},
+	filename: (req, file, cb) => {
+		cb(
+			null,
+			new Date()
+				.toISOString()
+				.replace(/\-/g, '')
+				.replace(/\:/g, '') + file.originalname
+		);
+	}
+
+})
+
+const fileFilter = (req, file, cb) => {
+
+	if(file.mimetype === 'image/png' || file.mimetype === 'image/jpg' || file.mimetype === 'image/jpeg'){
+		cb(null, true)
+	}
+	else{
+		cb(null, false)
+	}
+}
+
+
 const doubleCsrfOptions = {
 	getSecret: () => process.env.SECRET_KEY,
 	cookieName: "__Host-meu.x-csrf-token",
 	cookieOptions: {
-	  sameSite: "strict",
-	  path: "/",
-	  secure: true
+		sameSite: "strict",
+		path: "/",
+		secure: true
 	},
 	size: 64,
 	ignoredMethods: ["GET", "HEAD", "OPTIONS"],
 	getTokenFromRequest: (req) => req.headers["x-csrf-token"]
-  };
+};
 
 const {
 	invalidCsrfTokenError, // This is just for convenience if you plan on making your own middleware.
 	generateToken, // Use this in your routes to provide a CSRF hash + token cookie and token.
 	validateRequest, // Also a convenience if you plan on making your own middleware.
 	doubleCsrfProtection, // This is the default CSRF protection middleware.
-  } = doubleCsrf(doubleCsrfOptions);
-  
+} = doubleCsrf(doubleCsrfOptions);
+
 
 app.use(bodyParser.urlencoded({ extended: false }))
-app.use(express.static(path.join(__dirname, 'public')))
 
+app.use(multer({ storage: fileStorage, fileFilter: fileFilter}).single('image'))
+app.use(express.static(path.join(__dirname, 'public')))
+app.use("/images", express.static(path.join(__dirname, 'images')))
 
 
 
@@ -97,7 +127,13 @@ app.use(authRoutes)
 app.set('view engine', 'ejs');
 app.set('views', 'view');
 
+app.get("/500", errorController.get500)
+
 app.use(errorController.get404)
+
+app.use((error, req, res, next) => {
+	res.redirect("/500")
+})
 
 Product.belongsTo(User, { constraints: true, onDelete: 'CASCADE' });
 User.hasMany(Product);
@@ -107,9 +143,9 @@ Cart.belongsToMany(Product, { through: CartItem });
 Product.belongsToMany(Cart, { through: CartItem });
 Order.belongsTo(User);
 User.hasMany(Order);
-Order.belongsToMany(Product, {through: OrderItem});
+Order.belongsToMany(Product, { through: OrderItem });
 
 sequelize.sync().then((result) => {
-    app.listen(3000);
+	app.listen(3000);
 })
-    .catch(err => console.log(err))
+	.catch(err => console.log(err))
