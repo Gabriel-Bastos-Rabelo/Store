@@ -6,18 +6,19 @@ const adminController = require("../controllers/admin")
 
 const isAuth = require("../middlewares/is-auth");
 const products = []
+const {postAddProductValidation, postEditProductValidation} = require("../middlewares/adminValidations")
 
 
 router.get("/add-product", isAuth, adminController.getAddProduct);
 
-router.post("/add-product", isAuth, adminController.postAddProduct)
+router.post("/add-product", isAuth, postAddProductValidation(), adminController.postAddProduct)
 
 router.get("/products", isAuth,  adminController.getProducts)
 
 
 router.get("/edit-product/:id", isAuth, adminController.getEditProduct);
 
-router.post("/edit-product", isAuth, adminController.postEditProduct);
+router.post("/edit-product", isAuth, postEditProductValidation(), adminController.postEditProduct);
 
 router.post("/delete-product", isAuth, adminController.postDeleteProduct)
 
