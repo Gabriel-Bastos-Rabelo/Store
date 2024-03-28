@@ -1,1 +1,7 @@
 .env
+node_modules
+images
+data
+config
+migrations
+seeders
