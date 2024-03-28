@@ -1,6 +1,7 @@
 const Product = require('../models/product');
 const User = require("../models/user");
 const { validationResult } = require('express-validator');
+const {deleteFile} = require('../util/file');
 
 exports.getAddProduct = (req, res, next) => {
 
@@ -173,12 +174,13 @@ exports.postEditProduct = (req, res, next) => {
   productUpdated.title = title;
   productUpdated.price = price;
   if (image) {
+    deleteFile(productUpdated.imageUrl);
     productUpdated.imageUrl = image.path;
   }
   productUpdated.description = description;
 
   console.log(productUpdated);
-  console.log("chegou aqui");
+  
 
   Product.update(productUpdated, {
     where: {
@@ -200,12 +202,22 @@ exports.postDeleteProduct = (req, res, next) => {
 
   const id = req.body.productId;
   const userId = req.session.user.id;
-  Product.destroy({
-    where: {
-      id: id,
-      userId: userId
+
+  Product.findByPk(id).then(product => {
+    if(!product){
+      return next(new Error('Product not found.'))
     }
-  }).then(() => {
+
+    deleteFile(product.imageUrl);
+
+    return Product.destroy({
+      where: {
+        id: id,
+        userId: userId
+      }
+    })
+  })
+  .then(() => {
     res.redirect("/admin/products");
   }).catch(err => {
     const error = new Error("Post delete product failed");
