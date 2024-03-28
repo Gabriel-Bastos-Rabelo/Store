@@ -1,12 +1,15 @@
 const Product = require('../models/product');
 const Cart = require("../models/cart");
-const Order = require("../models/order")
-const User = require("../models/user")
+const Order = require("../models/order");
+const orderItem = require("../models/order-item");
+const User = require("../models/user");
+const fs = require('fs');
+const path = require('path');
+const PDFDocument = require('pdfkit');
 
 exports.getProducts = (req, res, next) => {
 
   Product.findAll().then(data => {
-    
 
     res.render('shop/product-list', {
       prods: data,
@@ -15,25 +18,33 @@ exports.getProducts = (req, res, next) => {
       isLoggedIn: req.session.isLoggedIn,
 
     });
-  }).catch(err => console.log(err))
+  }).catch(err => {
+    const error = err;
+    error.httpStatusCode = 500;
+    return next(error)
+  })
 
-  
+
 };
 
 exports.getProduct = (req, res, next) => {
   const id = req.params.id;
   Product.findByPk(id).then(data => {
+    console.log(req)
+    res.render("shop/product-details", { product: data, pageTitle: "Product details", path: "/product-details", isLoggedIn: req.session.isLoggedIn, csrfToken: req.csrfToken })
+  }).catch(err => {
+    const error = err;
+    error.httpStatusCode = 500;
+    return next(error)
+  })
 
-    res.render("shop/product-details", {product: data, pageTitle: "Product details", path: "/product-details", isLoggedIn: req.session.isLoggedIn, csrfToken: req.csrfToken()})
-  }).catch(err => console.log(err))
-  
 }
 
 exports.getIndex = async (req, res, next) => {
-  
-  
+
+
   Product.findAll().then(data => {
-    
+
     res.render('shop/index', {
       prods: data,
       pageTitle: 'Shop',
@@ -41,53 +52,60 @@ exports.getIndex = async (req, res, next) => {
       isLoggedIn: req.session.isLoggedIn,
 
     });
-  }).catch(err => console.log(err))
-  
-  
+  }).catch(err => {
+    const error = err;
+    error.httpStatusCode = 500;
+    return next(error)
+  })
+
+
 };
 
 exports.getCart = (req, res, next) => {
-  console.log("chegou auqi")
   const userId = req.session.user.id;
-  console.log(req.session.user)
+
   User.findByPk(userId)
-  .then(user => {
-    return user.getCart();
-  })
-  .then(cart => {
-    return cart.getProducts()
-    .then(product => {
+    .then(user => user.getCart())
+    .then(cart => cart.getProducts())
+    .then(products => {
+      console.log(products)
       res.render('shop/cart', {
         path: '/cart',
         pageTitle: 'Your Cart',
-        products: product,
+        products: products,
         isLoggedIn: req.session.isLoggedIn,
-        
-      })
-    .catch(err => console.log(err))
+      });
     })
-  })
-
-  .catch(err => console.log(err))
-  
+    .catch(err => {
+      // Aqui você captura qualquer erro que ocorra em qualquer parte da cadeia de promessas
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
+
 
 exports.getOrders = (req, res, next) => {
   const userId = req.session.user.id;
   User.findByPk(userId).then(user => {
-    return user.getOrders({include: ['products']})
+    return user.getOrders({ include: ['products'] })
   })
-  .then(orders => {
-    console.log(orders)
-    res.render('shop/orders', {
-      path: '/orders',
-      pageTitle: 'Your Cart',
-      orders: orders,
-      isLoggedIn: req.session.isLoggedIn,
-      
-    });
-  }).catch(err => console.log(err))
-  
+    .then(orders => {
+
+
+      return res.render('shop/orders', {
+        path: '/orders',
+        pageTitle: 'Your Cart',
+        orders: orders,
+        isLoggedIn: req.session.isLoggedIn,
+
+      });
+    }).catch(err => {
+      const error = err;
+      error.httpStatusCode = 500;
+      return next(error)
+    })
+
 };
 
 exports.getCheckout = (req, res, next) => {
@@ -106,32 +124,36 @@ exports.addCart = (req, res, next) => {
   User.findByPk(userId).then(user => {
     return user.getCart();
   })
-  .then(cart => {
-    fetchedCart = cart;
-    return cart.getProducts({where:{id: id}})
-  })
-  .then(prod => {
-    let product;
-    if(prod.length > 0){
-      product = prod[0];
-    }
-    if(product){
-      console.log(product.getCartItem)
-      oldQuantity = product.cartItem.quantity;
-      newQuantity = oldQuantity + 1;
+    .then(cart => {
+      fetchedCart = cart;
+      return cart.getProducts({ where: { id: id } })
+    })
+    .then(prod => {
+      let product;
+      if (prod.length > 0) {
+        product = prod[0];
+      }
+      if (product) {
+        console.log(product.getCartItem)
+        oldQuantity = product.cartItem.quantity;
+        newQuantity = oldQuantity + 1;
 
-      return product;
-    }
+        return product;
+      }
 
-    return Product.findByPk(id);
-  
+      return Product.findByPk(id);
 
-  })
-  .then(product => {
-    fetchedCart.addProduct(product, {through: {quantity: newQuantity}});
-    res.redirect("/cart");
-  })
-  .catch(err => console.log(err))
+
+    })
+    .then(product => {
+      fetchedCart.addProduct(product, { through: { quantity: newQuantity } });
+      res.redirect("/cart");
+    })
+    .catch(err => {
+      const error = err;
+      error.httpStatusCode = 500;
+      return next(error)
+    })
 }
 
 exports.postDeleteProductCart = (req, res, next) => {
@@ -140,15 +162,19 @@ exports.postDeleteProductCart = (req, res, next) => {
   User.findByPk(userId).then(user => {
     return user.getCart();
   })
-  .then(cart => {
-    return cart.getProducts({where: {id: id}});
-  }).then(product => {
-    return product[0].cartItem.destroy();
-  }).then(result => {
-    res.redirect("/cart");
-  }).catch(err => console.log(err))
+    .then(cart => {
+      return cart.getProducts({ where: { id: id } });
+    }).then(product => {
+      return product[0].cartItem.destroy();
+    }).then(result => {
+      res.redirect("/cart");
+    }).catch(err => {
+      const error = err;
+      error.httpStatusCode = 500;
+      return next(error)
+    })
 
-  
+
 }
 
 
@@ -182,6 +208,73 @@ exports.postOrder = (req, res, next) => {
       res.redirect("/orders");
     })
     .catch(err => {
-      console.log(err);
-    });
+      const error = err;
+      error.httpStatusCode = 500;
+      return next(error)
+    })
 };
+
+
+exports.getInvoices = (req, res, next) => {
+  const id = req.params.id;
+  Order.findByPk(id, { include: ['products'] }).then(order => {
+    if (!order) {
+      return next(new Error('Order not found'));
+    }
+
+    if (order.userId !== req.session.user.id) {
+      return next(new Error('Not authorized'));
+    }
+
+    const invoiceName = "invoice-" + id + ".pdf";
+    const invoicePath = path.join('data', 'invoices', invoiceName);
+
+    const doc = new PDFDocument();
+    const writeStream = fs.createWriteStream(invoicePath);
+
+    doc.fontSize(26).text('Invoice', {
+      underline: true
+    }).moveDown();
+
+    doc.fontSize(20).text(`Order ID: ${id}`, {
+      align: 'left'
+    }).moveDown(2);
+
+    let totalPrice = 0;
+    order.products.forEach(prod => {
+      const productTotal = prod.orderItem.quantity * prod.price;
+      totalPrice += productTotal;
+      doc.fontSize(14).text(`${prod.title} - ${prod.orderItem.quantity} x $${prod.price.toFixed(2)} = $${productTotal.toFixed(2)}`, {
+        align: 'left'
+      }).moveDown(0.5);
+    });
+
+    // Adicionando uma linha antes do total
+    doc.moveDown().fontSize(14).text('-----------------------').moveDown(0.5);
+
+    // Adicionando o total
+    doc.fontSize(16).text(`Total Price: $${totalPrice.toFixed(2)}`, {
+      align: 'right',
+      bold: true
+    });
+
+    doc.pipe(writeStream);
+
+    doc.on('error', (err) => {
+      next(err);
+    });
+
+    writeStream.on('finish', () => {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="' + invoiceName + '"');
+      const file = fs.createReadStream(invoicePath);
+      file.pipe(res);
+    });
+
+    doc.end();
+    
+  }).catch(err => {
+    console.log(err);
+    next(err);
+  });
+}
