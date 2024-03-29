@@ -6,16 +6,32 @@ const User = require("../models/user");
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const {deleteFile} = require('../util/file');
+
+const ITEMS_POR_PAGE = 1;
 
 exports.getProducts = (req, res, next) => {
+  
+  const page = +req.query.page || 1;
+  let totalItems = 0;
 
-  Product.findAll().then(data => {
+  Product.findAndCountAll({offset: (page - 1) * ITEMS_POR_PAGE, limit: ITEMS_POR_PAGE})
 
+  .then(({count, rows}) => {
+
+    totalItems = count;
+    let data = rows;
     res.render('shop/product-list', {
       prods: data,
       pageTitle: 'All Products',
       path: '/products',
       isLoggedIn: req.session.isLoggedIn,
+      currentPage: page,
+      hasNextPage: ITEMS_POR_PAGE * page < totalItems,
+      hasPreviousPage: page > 1,
+      nextPage: page + 1,
+      previousPage: page - 1,
+      lastPage: Math.ceil(totalItems/ITEMS_POR_PAGE)
 
     });
   }).catch(err => {
@@ -42,14 +58,31 @@ exports.getProduct = (req, res, next) => {
 
 exports.getIndex = async (req, res, next) => {
 
+  const page = +req.query.page || 1;
+  let totalItems = 0;
 
-  Product.findAll().then(data => {
+  
 
+  Product.findAndCountAll({offset: (page - 1) * ITEMS_POR_PAGE, limit: ITEMS_POR_PAGE})
+  
+  .then(({count, rows}) => {
+
+    totalItems = count;
+    let data = rows;
+    console.log(ITEMS_POR_PAGE * page < totalItems)
+    
+  
     res.render('shop/index', {
       prods: data,
       pageTitle: 'Shop',
       path: '/',
       isLoggedIn: req.session.isLoggedIn,
+      currentPage: page,
+      hasNextPage: ITEMS_POR_PAGE * page < totalItems,
+      hasPreviousPage: page > 1,
+      nextPage: page + 1,
+      previousPage: page - 1,
+      lastPage: Math.ceil(totalItems/ITEMS_POR_PAGE)
 
     });
   }).catch(err => {
@@ -268,9 +301,11 @@ exports.getInvoices = (req, res, next) => {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="' + invoiceName + '"');
       const file = fs.createReadStream(invoicePath);
-      file.pipe(res);
+      file.pipe(res).on('finish', () => {deleteFile(invoicePath)});
+      
     });
 
+    
     doc.end();
     
   }).catch(err => {
