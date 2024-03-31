@@ -1,34 +1,29 @@
-const express = require("express");
+const express = require('express')
 
-const router = express.Router();
+const router = express.Router()
 
-const {check, body} = require("express-validator");
+const authController = require('../controllers/auth')
 
-const authController = require("../controllers/auth");
+const { signUpValidation, loginValidation } = require('../middlewares/authValidations')
 
-const {signUpValidation, loginValidation} = require("../middlewares/authValidations")
+router.get('/login', authController.getLogin)
 
+router.post('/login', loginValidation(), authController.postLogin)
 
+router.post('/logout', authController.postLogout)
 
+router.get('/signup', authController.getSignup)
 
-router.get("/login", authController.getLogin);
+router.post('/signup', signUpValidation(), authController.postSignup)
 
-router.post("/login", loginValidation(), authController.postLogin)
+router.get('/reset', authController.getReset)
 
-router.post("/logout", authController.postLogout)
+router.post('/reset', authController.postReset)
 
-router.get("/signup", authController.getSignup);
+router.get('/reset/:token', authController.getNewPassword)
 
-router.post("/signup", signUpValidation() ,authController.postSignup);
+router.get('/token-expired', authController.getTokenExpired)
 
-router.get('/reset', authController.getReset);
+router.post('/new-password', authController.postNewPassword)
 
-router.post("/reset", authController.postReset);
-
-router.get("/reset/:token", authController.getNewPassword);
-
-router.get("/token-expired", authController.getTokenExpired);
-
-router.post("/new-password", authController.postNewPassword);
-
-module.exports = router;
+module.exports = router
